@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Number Hunt - Multiplayer</title>
+<style>
+:root{--bg:#070b16;--card:#0f1a2e;--line:#263653;--a:#51d6ff;--b:#c4b5fd;--t:#eef3ff;--m:#8fa0bc}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.5 system-ui,sans-serif;padding:16px;max-width:1100px;margin:auto}
+h1{margin:0 0 4px;letter-spacing:2px}h1 b{color:var(--a)}h3{margin:0 0 8px;font-size:13px;letter-spacing:1px;color:var(--m)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0}
+input,select,button{font:inherit;border-radius:8px;border:1px solid #30415e;background:#0a1424;color:var(--t);padding:10px}
+button{cursor:pointer;background:#123b5c}button:hover{border-color:var(--a)}button.p{background:linear-gradient(100deg,#00b8e8,#3476ff);border:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}.hide{display:none}.m{color:var(--m);font-size:12px}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}.slot{padding:8px;border:1px solid #243652;border-radius:8px;margin:4px 0;background:#0a1424;display:flex;justify-content:space-between}
+.A h3{color:var(--a)}.B h3{color:var(--b)}.ok{color:#42e69b}.no{color:#ff9fb0}
+#target{font-size:64px;font-weight:800;line-height:1}#bar{height:8px;background:#0a1424;border-radius:6px;overflow:hidden;margin:8px 0}#bar i{display:block;height:100%;background:linear-gradient(90deg,#00d4ff,#8b5cff);width:100%}
+#msg{padding:10px;border-radius:8px;background:#0d2a40;border:1px solid #2f5a7e;text-align:center;font-weight:700;margin:8px 0}
+.wrap{display:flex;gap:8px}#board{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:4px;max-height:55vh;overflow:auto}
+#board button{padding:7px 0;font-size:11px;background:#1a2941}#board.watch,#board.lock{pointer-events:none}#board.lock{opacity:.5}#board.watch{scroll-behavior:smooth}
+#board .u{text-decoration:line-through;opacity:.35}#board .ok2{background:#0b6b45}#board .peek{outline:2px solid var(--a);background:#0a4f66}
+#map{width:12px;border-radius:8px;background:#0a1424;border:1px solid #243652;position:relative}#map i{position:absolute;left:1px;right:1px;top:0;height:20%;background:var(--a);border-radius:6px;opacity:.75}
+#feed,#chat{max-height:180px;overflow:auto;font-size:12px;color:var(--m)}table{width:100%;border-collapse:collapse}td,th{padding:6px;border-top:1px solid #1d2c45;text-align:left}
+</style></head><body>
+<h1>NUMBER <b>HUNT</b></h1><div class="m" id="conn">Connecting...</div>
+
+<div id="home" class="card">
+  <h3>PLAY</h3>
+  <div class="row"><input id="name" placeholder="Nickname" maxlength="18"><select id="size"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select><span class="m">players per team</span></div>
+  <div class="row"><button class="p" id="create">Create private room</button><button id="quick">Quick match</button></div>
+  <div class="row"><input id="code" placeholder="Room code (NH-XXXX)" maxlength="7"><button id="join">Join</button><button id="spec">Spectate</button></div>
+  <div class="m" id="err" style="color:#ff9fb0"></div>
+</div>
+
+<div id="lobby" class="card hide">
+  <h3>ROOM <b id="lcode"></b> <span class="m" id="lcfg"></span></h3>
+  <div class="teams"><div class="A"><h3>TEAM A</h3><div id="la"></div></div><div class="B"><h3>TEAM B</h3><div id="lb"></div></div></div>
+  <div class="row"><button id="ready">Ready</button><button id="swap">Switch team</button><button id="fill" class="hide">Fill with bots</button><button id="start" class="p hide">Start match</button></div>
+</div>
+
+<div id="game" class="card hide">
+  <div class="row" style="justify-content:space-between"><div><span class="m">TEAM A</span> <b id="sa" style="font-size:28px">0</b> : <b id="sb" style="font-size:28px">0</b> <span class="m">TEAM B</span></div><div class="m" id="round"></div><div id="spectag" class="hide m">SPECTATING (delayed)</div></div>
+  <div class="row" style="justify-content:space-between"><div id="target">???</div><div id="time" style="font-size:40px;font-weight:800">0</div></div>
+  <div id="bar"><i id="bari"></i></div><div class="m" id="roles"></div><div id="msg"></div>
+  <div id="sel" class="row hide"><input id="tin" placeholder="0 - 499" inputmode="numeric" maxlength="3"><button class="p" id="tset">Set target</button><span id="terr" class="no"></span></div>
+  <div class="m" id="live"></div>
+  <div class="wrap"><div id="board" class="lock"></div><div id="map"><i id="mv"></i></div></div>
+  <div class="teams" style="margin-top:12px"><div><h3>FEED</h3><div id="feed"></div></div><div><h3>CHAT</h3><div id="chat"></div><div class="row"><input id="cin" placeholder="Message" maxlength="200"><button id="csend">Send</button></div></div></div>
+</div>
+
+<div id="over" class="card hide"><h3>MATCH COMPLETE</h3><h1 id="ores"></h1><div id="osc" style="font-size:44px;font-weight:800"></div><div class="m" id="omvp"></div>
+  <table><thead><tr><th>Player</th><th>Team</th><th>Correct</th><th>Wrong</th><th>Avg time</th></tr></thead><tbody id="otab"></tbody></table>
+  <div class="row"><button class="p" id="again">Back to menu</button></div></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const $=id=>document.getElementById(id),s=io();
+let me={id:null,name:'Player'},room=null,rd=null,order=[],skew=0,spectating=false,lastPeek=null;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const show=id=>['home','lobby','game','over'].forEach(x=>$(x).classList.toggle('hide',x!==id));
+const nm=()=>($('name').value.trim()||'Player').slice(0,18);
+s.on('connect',()=>{$('conn').textContent='Connected';const k=JSON.parse(sessionStorage.getItem('nh')||'null');
+  if(k)s.emit('room:rejoin',k,r=>{if(r.ok){me.id=r.id}else sessionStorage.removeItem('nh')})});
+s.on('disconnect',()=>$('conn').textContent='Disconnected. Reconnecting...');
+function joined(r,name){if(!r.ok){$('err').textContent=r.error;return}me={id:r.id,name};spectating=false;
+  sessionStorage.setItem('nh',JSON.stringify({code:r.code,token:r.token}));$('err').textContent=''}
+$('create').onclick=()=>{const name=nm();s.emit('room:create',{name,size:+$('size').value,cfg:{search:45,target:20,win:'score',val:5}},r=>joined(r,name))};
+$('join').onclick=()=>{const name=nm();s.emit('room:join',{code:$('code').value,name},r=>joined(r,name))};
+$('spec').onclick=()=>s.emit('room:spectate',{code:$('code').value},r=>{if(!r.ok){$('err').textContent=r.error;return}spectating=true;me={id:null,name:''};$('spectag').classList.remove('hide')});
+$('quick').onclick=()=>{s.emit('queue:join',{name:nm(),size:+$('size').value});$('err').textContent='Searching for players...'};
+s.on('queue:matched',r=>{me={id:r.id,name:nm()};sessionStorage.setItem('nh',JSON.stringify({code:r.code,token:r.token}));$('err').textContent=''});
+$('ready').onclick=()=>{const p=mine();s.emit('room:ready',!(p&&p.ready))};
+$('swap').onclick=()=>{const p=mine();s.emit('room:team',p&&room.teams[0].some(x=>x&&x.id===p.id)?1:0)};
+$('fill').onclick=()=>s.emit('room:fill');$('start').onclick=()=>s.emit('room:start');
+$('again').onclick=()=>{sessionStorage.removeItem('nh');location.reload()};
+const mine=()=>room&&room.teams.flat().find(x=>x&&x.id===me.id);
+s.on('room:state',r=>{room=r;$('spectag').classList.toggle('hide',!spectating);
+  if(r.state==='lobby'){show('lobby');$('lcode').textContent=r.code;$('lcfg').textContent=`${r.size}v${r.size} - first to ${r.cfg.val} - ${r.cfg.search}s search / ${r.cfg.target}s target`;
+    ['la','lb'].forEach((id,t)=>$(id).innerHTML=r.teams[t].map(p=>`<div class="slot"><span>${p?esc(p.name)+(p.id===me.id?' (you)':'')+(p.bot?' [bot]':''):'Open slot'}</span><b class="${p&&p.ready?'ok':'no'}">${p?(p.ready?'READY':'NOT READY'):''}</b></div>`).join(''));
+    const host=r.host===me.id;$('fill').classList.toggle('hide',!host);$('start').classList.toggle('hide',!host);
+    ['ready','swap'].forEach(i=>$(i).classList.toggle('hide',spectating))}
+  else if(r.state==='play')show('game')});
+s.on('game:round',r=>{show('game');order=r.order;rd=r;skew=r.now-Date.now();
+  $('board').innerHTML=order.map(n=>`<button data-n="${n}">${n}</button>`).join('');$('board').scrollTop=0;$('feed').innerHTML=$('feed').innerHTML;hud()});
+s.on('game:state',r=>{rd={...rd,...r};skew=r.now-Date.now();if(r.found){const b=$('board').querySelector(`[data-n="${rd.tg}"]`);b&&b.classList.add('ok2')}hud()});
+s.on('game:event',e=>{$('feed').insertAdjacentHTML('afterbegin',`<div>${esc(e.text)}</div>`)});
+s.on('game:wrong',n=>{const b=$('board').querySelector(`[data-n="${n}"]`);if(b)b.style.background='#5a1830'});
+s.on('chat',c=>{$('chat').insertAdjacentHTML('beforeend',`<div><b>${esc(c.name)} [${c.team}]:</b> ${esc(c.text)}</div>`);$('chat').scrollTop=1e9});
+$('csend').onclick=()=>{const v=$('cin').value.trim();if(v&&!spectating){s.emit('chat',v);$('cin').value=''}};
+function hud(){if(!rd)return;const imS=rd.sr===me.name&&!spectating,imL=rd.sl===me.name&&!spectating;
+  $('sa').textContent=rd.sc[0];$('sb').textContent=rd.sc[1];$('round').textContent='ROUND '+rd.r+' - TEAM '+'AB'[rd.ts]+' SEARCHING';
+  $('target').textContent=rd.tg===null?'???':rd.tg;$('roles').textContent=`Searcher: ${rd.sr} | Selector: ${rd.sl}`;
+  $('sel').classList.toggle('hide',!(rd.ph==='select'&&imL));
+  $('msg').textContent=rd.ph==='select'?(imL?'YOUR TURN: choose a target':`Waiting for ${rd.sl} to choose a target...`):rd.ph==='search'?(imS?'GO! Find '+rd.tg:`${rd.sr} is searching for ${rd.tg}...`):'Round over...';
+  $('board').className=rd.ph==='search'?(imS?'':'watch'):'lock';
+  $('live').textContent=rd.ph==='search'?(imS?'Your screen is live to your team, the opponents and spectators.':`Watching ${rd.sr}'s live screen.`):''}
+setInterval(()=>{if(!rd||rd.ph==='between'){return}const left=rd.dl-(Date.now()+skew),tot=(rd.ph==='select'?rd.cfg.target:rd.cfg.search)*1000;
+  $('time').textContent=Math.max(0,Math.ceil(left/1000));$('bari').style.width=Math.max(0,left/tot*100)+'%'},100);
+$('tset').onclick=()=>s.emit('game:target',$('tin').value.trim()===''?NaN:+$('tin').value,r=>{$('terr').textContent=r.error||'';if(!r.error)$('tin').value=''});
+$('tin').addEventListener('keydown',e=>{if(e.key==='Enter')$('tset').click()});
+$('board').addEventListener('click',e=>{const b=e.target.closest('button');if(b)s.emit('game:click',+b.dataset.n)});
+/* searcher -> server: scroll + hover; server -> everyone else: mirrored */
+let tv=0;const bd=$('board');
+function sync(){const h=bd.scrollHeight;if(h){$('mv').style.top=bd.scrollTop/h*100+'%';$('mv').style.height=Math.min(100,bd.clientHeight/h*100)+'%'}}
+bd.addEventListener('scroll',()=>{sync();if(rd&&rd.ph==='search'&&rd.sr===me.name&&!spectating&&Date.now()-tv>80){tv=Date.now();
+  s.emit('game:view',{top:bd.scrollTop/Math.max(1,bd.scrollHeight-bd.clientHeight),peek:lastPeek})}});
+bd.addEventListener('mouseover',e=>{const b=e.target.closest('button');if(!b||!rd||rd.sr!==me.name||rd.ph!=='search')return;lastPeek=+b.dataset.n;s.emit('game:view',{top:bd.scrollTop/Math.max(1,bd.scrollHeight-bd.clientHeight),peek:lastPeek})});
+s.on('game:view',v=>{bd.scrollTop=v.top*(bd.scrollHeight-bd.clientHeight);const o=bd.querySelector('.peek');if(o)o.classList.remove('peek');
+  if(v.peek!==null){const b=bd.querySelector(`[data-n="${v.peek}"]`);b&&b.classList.add('peek')}sync()});
+s.on('game:over',o=>{show('over');$('ores').textContent=o.result==='draw'?'DRAW':'TEAM '+o.result+' WINS';$('osc').textContent=o.score[0]+' : '+o.score[1];
+  $('omvp').textContent='MVP: '+o.mvp+' - Duration '+Math.round(o.duration/1000)+' s';
+  $('otab').innerHTML=o.rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.team}</td><td>${r.c}</td><td>${r.w}</td><td>${r.avg===null?'-':(r.avg/1000).toFixed(1)+' s'}</td></tr>`).join('')});
+</script></body></html>
