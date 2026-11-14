@@ -1,0 +1,22 @@
+# Render Blueprint (free): push this folder to GitHub, then Render > New > Blueprint.
+# The database lives OUTSIDE Render (free Neon Postgres) because Render's free Postgres expires after 30 days.
+# Leave DATABASE_URL empty to try the game first: guests can play, but accounts are lost whenever the server restarts.
+services:
+  - type: web
+    name: number-hunt
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false        # paste the Neon connection string (postgresql://...) in the Render dashboard
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SPECTATOR_DELAY_MS
+        value: "3000"
+      - key: GOOGLE_CLIENT_ID
+        sync: false        # optional: your Google OAuth Client ID
